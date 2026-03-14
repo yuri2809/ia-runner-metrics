@@ -1,4 +1,5 @@
 streamlit
 google-search-results
-google-generativeai
 pandas
+requests
+altair
