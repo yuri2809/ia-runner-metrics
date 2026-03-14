@@ -41,7 +41,7 @@ if st.button("Analisar"):
                     
                     # 2. Análise com Gemini
                     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                    model_ai = genai.GenerativeModel('gemini-1.5-flash-latest')
+                    model_ai = genai.GenerativeModel('gemini-1.5-flash')
                     
                     prompt = f"Analise o tênis {modelo}. Dê 3 prós, 2 contras e diga se vale a pena por {melhor_oferta['price']} na {melhor_oferta['source']}."
                     response = model_ai.generate_content(prompt)
