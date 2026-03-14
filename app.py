@@ -1,95 +1,58 @@
 import streamlit as st
 from serpapi import GoogleSearch
-import google.generativeai as genai
 import pandas as pd
+import requests
+import json
 
-# 1. Configurações Iniciais de Interface
-st.set_page_config(page_title="IA Runner Metrics", page_icon="🏃", layout="centered")
-
+st.set_page_config(page_title="IA Runner Metrics", page_icon="🏃")
 st.title("🏃 IA Runner Metrics")
-st.markdown("""
-Esta aplicação utiliza **Inteligência Artificial** e dados do **Google Shopping** para encontrar o melhor preço e analisar a performance de tênis de corrida.
-""")
 
-# 2. Entrada do Usuário
-modelo = st.text_input("Qual modelo de tênis você deseja analisar?", placeholder="Ex: Puma Deviate Nitro 3")
+modelo = st.text_input("Qual tênis de corrida quer analisar?", placeholder="Ex: Puma Deviate Nitro 3")
 
-if st.button("Analisar Tênis"):
+if st.button("Analisar"):
     if modelo:
-        with st.spinner('Buscando ofertas e gerando análise técnica...'):
+        with st.spinner('Buscando preços e consultando a IA...'):
             try:
-                # --- ETAPA 1: BUSCA DE PREÇOS (SERPAPI) ---
-                search_params = {
+                # 1. BUSCA DE PREÇOS (SERPAPI)
+                params = {
                     "engine": "google_shopping",
                     "q": modelo,
                     "hl": "pt",
                     "gl": "br",
                     "api_key": st.secrets["SERP_API_KEY"]
                 }
-                search = GoogleSearch(search_params)
+                search = GoogleSearch(params)
                 results = search.get_dict()
                 
                 if "shopping_results" in results:
-                    # Transformamos em tabela
                     df = pd.DataFrame(results["shopping_results"][:10])
-                    
-                    # Exibimos a melhor oferta em destaque
                     melhor_oferta = df.iloc[0]
-                    st.success(f"🔥 Melhor oferta: {melhor_oferta['price']} na {melhor_oferta['source']}")
+                    st.success(f"Melhor preço: {melhor_oferta['price']} na {melhor_oferta['source']}")
+                    st.dataframe(df[['source', 'title', 'price']])
                     
-                    # Tabela completa de preços
-                    st.write("### Comparativo de Preços")
-                    st.dataframe(df[['source', 'title', 'price']], use_container_width=True)
+                    # 2. ANÁLISE COM GEMINI (VIA CHAMADA DIRETA)
+                    # Tentamos falar com a IA sem usar a biblioteca 'generativeai'
+                    api_key = st.secrets["GEMINI_API_KEY"]
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
                     
-                    # --- ETAPA 2: ANÁLISE COM IA (GEMINI) ---
-                    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+                    payload = {
+                        "contents": [{
+                            "parts": [{
+                                "text": f"Você é um especialista em tênis de corrida. Analise o modelo {modelo}. Dê 3 prós, 2 contras e diga se vale a pena por {melhor_oferta['price']} na loja {melhor_oferta['source']}. Seja direto."
+                            }]
+                        }]
+                    }
                     
-                    # Configuração de segurança para evitar que a IA bloqueie nomes de marcas
-                    safety_settings = [
-                        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                    ]
+                    response = requests.post(url, json=payload)
+                    res_json = response.json()
                     
-                    modelos_testar = ["gemini-1.5-flash", "gemini-pro"]
-                    analise_texto = None
-                    
-                    for m_name in modelos_testar:
-                        try:
-                            # Adicionamos o safety_settings aqui na criação do modelo
-                            model_ai = genai.GenerativeModel(m_name, safety_settings=safety_settings)
-                            
-                            prompt = f"""
-                            Você é um especialista em tênis de corrida. 
-                            Analise o modelo: {modelo}.
-                            1. Liste 3 pontos fortes.
-                            2. Liste 2 pontos fracos.
-                            3. Conclua se o preço de {melhor_oferta['price']} vale a pena.
-                            Responda de forma direta com bullet points.
-                            """
-                            response = model_ai.generate_content(prompt)
-                            analise_texto = response.text
-                            if analise_texto:
-                                break
-                        except:
-                            continue
-                    
-                    if analise_texto:
-                        st.markdown("---")
-                        st.markdown("### 🤖 Avaliação Técnica da IA")
-                        st.markdown(analise_texto)
+                    if response.status_code == 200:
+                        texto_ia = res_json['candidates'][0]['content']['parts'][0]['text']
+                        st.markdown("### 🤖 Análise da IA")
+                        st.write(texto_ia)
                     else:
-                        st.warning("⚠️ A análise da IA falhou, mas os preços acima são reais.")
-                
+                        st.warning(f"A IA retornou um erro ({response.status_code}). Mas os preços estão acima!")
                 else:
-                    st.error("Nenhum resultado de preço encontrado para este modelo.")
-            
+                    st.error("Nenhum preço encontrado.")
             except Exception as e:
-                st.error(f"Erro inesperado no sistema: {e}")
-    else:
-        st.warning("Por favor, digite o nome de um tênis para começar.")
-
-# Rodapé informativo
-st.markdown("---")
-st.caption("Projeto desenvolvido para a Especialização em Comunicação e IA.")
+                st.error(f"Erro no sistema: {e}")
