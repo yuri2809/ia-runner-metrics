@@ -2,96 +2,63 @@ import streamlit as st
 from serpapi import GoogleSearch
 import pandas as pd
 import requests
-import json
 
 # 1. Configuração da Página
-st.set_page_config(page_title="IA Runner Metrics", page_icon="🏃", layout="centered")
-
-st.title("🏃 IA Runner Metrics")
-st.markdown("""
-Esta aplicação utiliza **Inteligência Artificial** e dados em tempo real para ajudar corredores a encontrar o melhor preço e entender a performance de seus equipamentos.
-""")
+st.set_page_config(page_title="IA Runner Metrics", page_icon="🏃")
+st.title("🏃 IA Runner Metrics (Powered by GPT-4o)")
 
 # 2. Entrada do Usuário
-modelo = st.text_input("Qual tênis de corrida você quer analisar?", placeholder="Ex: Puma Deviate Nitro 3")
+modelo = st.text_input("Qual tênis quer analisar?", placeholder="Ex: Puma Deviate Nitro 3")
 
 if st.button("Analisar Tênis"):
     if modelo:
-        with st.spinner('Buscando ofertas e consultando a IA...'):
+        with st.spinner('Buscando preços e consultando a inteligência do ChatGPT...'):
             try:
                 # --- ETAPA 1: BUSCA DE PREÇOS (SERPAPI) ---
-                search_params = {
+                params = {
                     "engine": "google_shopping",
                     "q": modelo,
                     "hl": "pt",
                     "gl": "br",
                     "api_key": st.secrets["SERP_API_KEY"]
                 }
-                search = GoogleSearch(search_params)
+                search = GoogleSearch(params)
                 results = search.get_dict()
                 
                 if "shopping_results" in results:
                     df = pd.DataFrame(results["shopping_results"][:10])
-                    
-                    # Identificando a melhor oferta
                     melhor_oferta = df.iloc[0]
-                    st.success(f"🔥 Melhor preço encontrado: {melhor_oferta['price']} na {melhor_oferta['source']}")
+                    st.success(f"Melhor preço: {melhor_oferta['price']} na {melhor_oferta['source']}")
+                    st.dataframe(df[['source', 'title', 'price']])
                     
-                    # Exibindo a tabela de preços
-                    st.write("### Comparativo de Preços")
-                    st.dataframe(df[['source', 'title', 'price']], use_container_width=True)
+                    # --- ETAPA 2: ANÁLISE COM OPENAI (GPT-4o-mini) ---
+                    openai_key = st.secrets["OPENAI_API_KEY"]
+                    url = "https://api.openai.com/v1/chat/completions"
                     
-                    # --- ETAPA 2: ANÁLISE COM IA (GEMINI VIA API DIRETA V1) ---
-                    api_key = st.secrets["GEMINI_API_KEY"]
-                    
-                    # URL da API Estável do Google
-                    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
-                    
-                    # Montagem do Prompt técnico
-                    prompt_text = (
-                        f"Você é um especialista técnico em tênis de corrida. "
-                        f"Analise o modelo {modelo}. "
-                        f"Forneça 3 pontos fortes, 2 pontos fracos e uma conclusão curta se o preço de "
-                        f"{melhor_oferta['price']} na loja {melhor_oferta['source']} é competitivo. "
-                        f"Responda em Português, de forma direta e usando bullet points."
-                    )
-                    
-                    payload = {
-                        "contents": [{
-                            "parts": [{
-                                "text": prompt_text
-                            }]
-                        }]
+                    headers = {
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {openai_key}"
                     }
                     
-                    headers = {'Content-Type': 'application/json'}
+                    data = {
+                        "model": "gpt-4o-mini",
+                        "messages": [
+                            {"role": "system", "content": "Você é um especialista em corrida de rua e materiais esportivos."},
+                            {"role": "user", "content": f"Analise o tênis {modelo}. Liste 3 pontos fortes, 2 pontos fracos e diga se o preço de {melhor_oferta['price']} na loja {melhor_oferta['source']} vale a pena. Seja direto."}
+                        ],
+                        "temperature": 0.7
+                    }
                     
-                    # Chamada para o Google
-                    response = requests.post(url, json=payload, headers=headers)
-                    res_json = response.json()
+                    response = requests.post(url, headers=headers, json=data)
                     
                     if response.status_code == 200:
-                        try:
-                            # Extração do texto da resposta JSON do Google
-                            texto_ia = res_json['candidates'][0]['content']['parts'][0]['text']
-                            st.markdown("---")
-                            st.markdown("### 🤖 Avaliação Técnica da IA")
-                            st.markdown(texto_ia)
-                        except Exception as e:
-                            st.warning("A IA processou a análise, mas houve um erro ao exibir o texto. Verifique os preços acima.")
+                        texto_ia = response.json()['choices'][0]['message']['content']
+                        st.markdown("---")
+                        st.markdown("### 🤖 Análise Real via GPT-4o")
+                        st.write(texto_ia)
                     else:
-                        erro_msg = res_json.get('error', {}).get('message', 'Erro desconhecido')
-                        st.warning(f"Nota: A análise da IA não pôde ser gerada (Erro {response.status_code}).")
-                        # Opcional: st.info(f"Detalhes: {erro_msg}")
-                
+                        st.error(f"Erro na OpenAI ({response.status_code}): {response.text}")
                 else:
-                    st.error("Não encontramos resultados de preços para este modelo no Google Shopping.")
-            
+                    st.error("Nenhum preço encontrado.")
             except Exception as e:
-                st.error(f"Erro de conexão: {e}")
-    else:
-        st.warning("Por favor, digite o nome de um tênis para começar.")
-
-# Rodapé
-st.markdown("---")
-st.caption("Projeto acadêmico para a Especialização em Comunicação e IA.")
+                st.error(f"Erro no sistema: {e}")
