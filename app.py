@@ -39,11 +39,14 @@ if st.button("Analisar"):
                     st.write("### Ofertas encontradas:")
                     st.dataframe(df[['source', 'title', 'price']])
                     
-                    # 2. Análise com Gemini
+                    # 2. Análise com Gemini (Versão Estabilizada)
                     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                    model_ai = genai.GenerativeModel('gemini-1.5-flash')
                     
-                    prompt = f"Analise o tênis {modelo}. Dê 3 prós, 2 contras e diga se vale a pena por {melhor_oferta['price']} na {melhor_oferta['source']}."
+                    # Usando o nome mais simples e universal do modelo
+                    model_ai = genai.GenerativeModel('gemini-pro')
+                    
+                    prompt = f"Você é um especialista em corrida. Analise o tênis {modelo}. Dê 3 prós, 2 contras e diga se vale a pena por {melhor_oferta['price']} na {melhor_oferta['source']}."
+                    
                     response = model_ai.generate_content(prompt)
                     
                     st.markdown("### 🤖 Avaliação da IA")
