@@ -73,4 +73,25 @@ if st.button("Analisar Tênis"):
                     if response.status_code == 200:
                         try:
                             # Extração do texto da resposta JSON do Google
-                            texto_ia = res
+                            texto_ia = res_json['candidates'][0]['content']['parts'][0]['text']
+                            st.markdown("---")
+                            st.markdown("### 🤖 Avaliação Técnica da IA")
+                            st.markdown(texto_ia)
+                        except Exception as e:
+                            st.warning("A IA processou a análise, mas houve um erro ao exibir o texto. Verifique os preços acima.")
+                    else:
+                        erro_msg = res_json.get('error', {}).get('message', 'Erro desconhecido')
+                        st.warning(f"Nota: A análise da IA não pôde ser gerada (Erro {response.status_code}).")
+                        # Opcional: st.info(f"Detalhes: {erro_msg}")
+                
+                else:
+                    st.error("Não encontramos resultados de preços para este modelo no Google Shopping.")
+            
+            except Exception as e:
+                st.error(f"Erro de conexão: {e}")
+    else:
+        st.warning("Por favor, digite o nome de um tênis para começar.")
+
+# Rodapé
+st.markdown("---")
+st.caption("Projeto acadêmico para a Especialização em Comunicação e IA.")
