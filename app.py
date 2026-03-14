@@ -1,6 +1,7 @@
 import streamlit as st
 from serpapi import GoogleSearch
 import google.generativeai as genai
+import os
 import pandas as pd
 
 # Configuração da página
@@ -43,7 +44,7 @@ if st.button("Analisar"):
                     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
                     
                     # Usando o nome mais simples e universal do modelo
-                    model_ai = genai.GenerativeModel('gemini-pro')
+                    model_ai = genai.GenerativeModel('gemini-1.5-flash')
                     
                     prompt = f"Você é um especialista em corrida. Analise o tênis {modelo}. Dê 3 prós, 2 contras e diga se vale a pena por {melhor_oferta['price']} na {melhor_oferta['source']}."
                     
