@@ -44,13 +44,22 @@ if st.button("Analisar Tênis"):
                     # --- ETAPA 2: ANÁLISE COM IA (GEMINI) ---
                     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
                     
-                    # Lista de modelos para tentar (ordem de estabilidade)
+                    # Configuração de segurança para evitar que a IA bloqueie nomes de marcas
+                    safety_settings = [
+                        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                    ]
+                    
                     modelos_testar = ["gemini-1.5-flash", "gemini-pro"]
                     analise_texto = None
                     
                     for m_name in modelos_testar:
                         try:
-                            model_ai = genai.GenerativeModel(m_name)
+                            # Adicionamos o safety_settings aqui na criação do modelo
+                            model_ai = genai.GenerativeModel(m_name, safety_settings=safety_settings)
+                            
                             prompt = f"""
                             Você é um especialista em tênis de corrida. 
                             Analise o modelo: {modelo}.
@@ -64,7 +73,7 @@ if st.button("Analisar Tênis"):
                             if analise_texto:
                                 break
                         except:
-                            continue # Tenta o próximo modelo se o atual der erro
+                            continue
                     
                     if analise_texto:
                         st.markdown("---")
